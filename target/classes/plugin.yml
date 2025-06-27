@@ -1,0 +1,7 @@
+name: WinCheck
+version: '1.0-SNAPSHOT'
+main: com.wintime.wincheck.main
+api-version: '1.16'
+commands:
+  wincheckreload: {}
+  key: {}

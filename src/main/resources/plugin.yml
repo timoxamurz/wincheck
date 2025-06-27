@@ -1,0 +1,7 @@
+name: WinCheck
+version: '${project.version}'
+main: com.wintime.wincheck.main
+api-version: '1.16'
+commands:
+  wincheckreload: {}
+  key: {}
