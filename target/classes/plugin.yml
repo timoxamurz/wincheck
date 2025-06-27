@@ -1,5 +1,5 @@
 name: WinCheck
-version: '1.0-SNAPSHOT'
+version: '1.1-SNAPSHOT'
 main: com.wintime.wincheck.main
 api-version: '1.16'
 commands:

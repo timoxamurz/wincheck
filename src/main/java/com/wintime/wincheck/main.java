@@ -3,18 +3,11 @@ package com.wintime.wincheck;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import net.md_5.bungee.api.ChatColor;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.event.Listener;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -22,115 +15,76 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.lang.reflect.Type;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 @SuppressWarnings("ResultOfMethodCallIgnored")
-public final class main extends JavaPlugin implements Listener{
+public final class main extends JavaPlugin implements Listener {
     public void onEnable() {
         getServer().getPluginManager().registerEvents(new reload(), this);
-        getServer().getPluginManager().registerEvents(new key(), this);
         getCommand("wincheckreload").setExecutor(new reload());
-        getCommand("key").setExecutor(new key());
         getDataFolder().mkdirs();
         // Файл для хранения ключей
-        keysFile = new File(getDataFolder(), "keys.json");
+        ipsFile = new File(getDataFolder(), "ips.json");
 
         // Загружаем ключи
-        loadKeys();
-
-        // Настраиваем изолированную зону
-        setupWaitingWorld();
+        loadIPs();
 
         // Регистрируем обработчики
         getServer().getPluginManager().registerEvents(this, this);
 
-        // Запускаем таймер для автообновления ключей
-        getServer().getScheduler().runTaskTimerAsynchronously(this, this::checkKeysUpdate, 20 * 5, 20 * 5);
+        // Запускаем таймер для автообновления айпи
+        getServer().getScheduler().runTaskTimerAsynchronously(this, this::checkIPsUpdate, 20 * 5, 20 * 5);
 
-        getLogger().warning("WinCheck was successfully enabled and it is ready to check keys!");
+        getLogger().warning("WinCheck was successfully enabled and it is ready to check ips!");
     }
+
     // Для работы с JSON
     private final Gson gson = new Gson();
-    private final Type keyListType = new TypeToken<List<KeyEntry>>() {}.getType();
+    private final Type ipListType = new TypeToken<List<IPEntry>>() {
+    }.getType();
 
     // Хранилище ключей и сессий
-    public static List<KeyEntry> keyEntries = new ArrayList<>();
-    public static final Map<UUID, String> pendingAuth = new ConcurrentHashMap<>();
-    public static File keysFile;
+    public static List<IPEntry> ipEntries = new ArrayList<>();
+    public static File ipsFile;
     private long lastFileCheck = 0;
 
-    // Для изолированной зоны
-    private Location waitingLocation;
-    public static final Map<UUID, Location> originalLocations = new HashMap<>();
-    public static final Set<UUID> frozenPlayers = new HashSet<>();
-    public static final Set<UUID> authorizedPlayers = new HashSet<>();
+    // Для подтверждения входа
+    private final Set<UUID> authorizedPlayers = new HashSet<>();
 
-    private void setupWaitingWorld() {
-        World world = Bukkit.getWorlds().get(0);
-        waitingLocation = new Location(world, 1000, 200, 1000);
-
-        // Создаем платформу (асинхронно)
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                for (int x = -2; x <= 2; x++) {
-                    for (int z = -2; z <= 2; z++) {
-                        world.getBlockAt(waitingLocation.clone().add(x, -1, z)).setType(Material.BEDROCK);
-                    }
-                }
-
-                // Очищаем область вокруг
-                for (int x = -10; x <= 10; x++) {
-                    for (int y = 60; y < 70; y++) {
-                        for (int z = -10; z <= 10; z++) {
-                            Location loc = waitingLocation.clone().add(x, y - 65, z);
-                            if (!loc.getBlock().isEmpty()) {
-                                loc.getBlock().setType(Material.AIR);
-                            }
-                        }
-                    }
-                }
-            }
-        }.runTask(this);
-    }
-
-
-    public static class KeyEntry {
+    public static class IPEntry {
         public String ip;
-        public String key;
     }
 
-    public void checkKeysUpdate() {
-        long lastModified = keysFile.lastModified();
+    public void checkIPsUpdate() {
+        long lastModified = ipsFile.lastModified();
         if (lastModified > lastFileCheck) {
-            loadKeys();
+            loadIPs();
             lastFileCheck = lastModified;
         }
     }
 
-    // Загрузка ключей из JSON
-    public synchronized void loadKeys() {
-        if (!keysFile.exists()) {
-            saveKeys();
+    // Загрузка IP из JSON
+    public synchronized void loadIPs() {
+        if (!ipsFile.exists()) {
+            saveIPs();
             return;
         }
 
-        try (FileReader reader = new FileReader(keysFile)) {
-            keyEntries = gson.fromJson(reader, keyListType);
-            if (keyEntries == null) {
-                keyEntries = new ArrayList<>();
+        try (FileReader reader = new FileReader(ipsFile)) {
+            ipEntries = gson.fromJson(reader, ipListType);
+            if (ipEntries == null) {
+                ipEntries = new ArrayList<>();
             }
         } catch (Exception e) {
-            getLogger().warning("Failed to load file keys.json: " + e.getMessage());
-            keyEntries = new ArrayList<>();
+            getLogger().warning("Failed to load file ips.json: " + e.getMessage());
+            ipEntries = new ArrayList<>();
         }
     }
 
-    // Сохранение ключей в JSON
-    public synchronized void saveKeys() {
-        try (FileWriter writer = new FileWriter(keysFile)) {
-            gson.toJson(keyEntries, writer);
+    // Сохранение IP в JSON
+    public synchronized void saveIPs() {
+        try (FileWriter writer = new FileWriter(ipsFile)) {
+            gson.toJson(ipEntries, writer);
         } catch (Exception e) {
-            getLogger().warning("Failed to save file keys.json: " + e.getMessage());
+            getLogger().warning("Failed to save file ips.json: " + e.getMessage());
         }
     }
 
@@ -149,7 +103,7 @@ public final class main extends JavaPlugin implements Listener{
 
         // Проверяем авторизацию IP
         boolean isAuthorized = false;
-        for (KeyEntry entry : keyEntries) {
+        for (IPEntry entry : ipEntries) {
             if (entry.ip.equals(ipAddress)) {
                 isAuthorized = true;
                 break;
@@ -165,27 +119,4 @@ public final class main extends JavaPlugin implements Listener{
         }
     }
 
-    // Обработчик выхода игрока
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        UUID playerId = event.getPlayer().getUniqueId();
-        frozenPlayers.remove(playerId);
-        pendingAuth.remove(playerId);
-        originalLocations.remove(playerId);
-    }
-
-    // Запрещаем движение замороженным игрокам
-    @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        if (frozenPlayers.contains(player.getUniqueId())) {
-            // Отменяем движение
-            event.setTo(waitingLocation);
-        }
-    }
-
-    @Override
-    public void onDisable() {
-// Plugin shutdown logic
-    }
 }

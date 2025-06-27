@@ -31,30 +31,29 @@ public class reload implements CommandExecutor, Listener {
         return true;
     }
     private final Gson gson = new Gson();
-    private final Type keyListType = new TypeToken<List<main.KeyEntry>>() {}.getType();
+    private final Type ipListType = new TypeToken<List<main.IPEntry>>() {}.getType();
 
-    private List<main.KeyEntry> keyEntries = new ArrayList<>();
-    public static final Set<String> usedKeys = new HashSet<>();
+    private List<main.IPEntry> ipEntries = new ArrayList<>();
 
     private synchronized void loadKeys() {
-        if (!main.keysFile.exists()) {
+        if (!main.ipsFile.exists()) {
             saveKeys();
             return;
         }
 
-        try (FileReader reader = new FileReader(main.keysFile)) {
-            keyEntries = gson.fromJson(reader, keyListType);
-            if (keyEntries == null) {
-                keyEntries = new ArrayList<>();
+        try (FileReader reader = new FileReader(main.ipsFile)) {
+            ipEntries = gson.fromJson(reader, ipListType);
+            if (ipEntries == null) {
+                ipEntries = new ArrayList<>();
             }
         } catch (Exception e) {
             getLogger().warning("Failed to load file keys.json: " + e.getMessage());
-            keyEntries = new ArrayList<>();
+            ipEntries = new ArrayList<>();
         }
     }
     private synchronized void saveKeys() {
-        try (FileWriter writer = new FileWriter(main.keysFile)) {
-            gson.toJson(keyEntries, writer);
+        try (FileWriter writer = new FileWriter(main.ipsFile)) {
+            gson.toJson(ipEntries, writer);
         } catch (Exception e) {
             getLogger().warning("Failed to save file keys.json: " + e.getMessage());
         }
